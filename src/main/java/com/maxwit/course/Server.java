@@ -12,43 +12,82 @@ import java.net.Socket;
  * Server
  */
 public class Server {
-    void task(int port) throws IOException {
-        ServerSocket ss = new ServerSocket(port);
-        Socket client = ss.accept();
+    ServerSocket ss = null;
+    DataInputStream dis = null;
+    DataOutputStream dos = null;
+    Socket client = null;
 
-        DataInputStream dis = new DataInputStream(client.getInputStream());
-        DataOutputStream dos = new DataOutputStream(client.getOutputStream());
-        String str = dis.readUTF();
-        String fpath = str.replaceAll("mycurl /", "");
-
-        File f = new File(fpath);
-        int flen = (int) f.length();
-        dos.writeLong(flen);
-        dos.writeUTF(f.getName());
-        dos.flush();
-
-        DataInputStream fis = new DataInputStream(new FileInputStream(f));
-        byte[] bt = new byte[flen];
-        int len;
-        while ((len = fis.read(bt)) > 0) {
-            dos.write(bt, 0, len);
-        }
-        dos.flush();
-
-        fis.close();
-        dos.close();
-        client.close();
-        ss.close();
+    void start(int port) throws IOException {
+        ss = new ServerSocket(port);
     }
 
-    public static void main(String[] args) {
-        Server server = new Server();
-        int port = 9001;
+    void task() throws IOException {
+        client = ss.accept();
+
+        dis = new DataInputStream(client.getInputStream());
+        dos = new DataOutputStream(client.getOutputStream());
+        String str = dis.readUTF();
+        filedUtil(str);
+    }
+
+    void filedUtil(String command) throws IOException {
+        String[] conditions = command.split(" ");
+        switch (conditions[0]) {
+            case "GET":
+                String fpath = conditions[1].replaceFirst("/", "");
+                this.sendFile(fpath);
+                break;
+            default:
+                break;
+        }
+    }
+
+    void sendFile(String fpath) throws IOException {
+        File f = new File(fpath);
+        if (f.exists()) {
+            int flen = (int) f.length();
+            String response = "HTTP/1.1 200 OK";
+            dos.writeUTF(response + "\n" + flen + "\n\n");
+            dos.flush();
+
+            DataInputStream fis = new DataInputStream(new FileInputStream(f));
+            byte[] bt = new byte[flen];
+            fis.read(bt);
+            dos.write(bt, 0, flen);
+            dos.flush();
+
+            fis.close();
+        } else {
+            int flen = (int) f.length();
+            String response = "HTTP/1.1 404 OK";
+            dos.writeUTF(response + "\n" + flen);
+            dos.flush();
+        }
+    }
+
+    void close() {
         try {
-            server.task(port);
+            client.close();
+            dos.close();
+            ss.close();
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+        }
+    }
+    
+
+    public static void main(String[] args) {
+        Server server = new Server();
+        int port = 9003;
+        try {
+            server.start(port);
+            server.task();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            server.close();
         }
     }
 }
