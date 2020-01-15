@@ -66,20 +66,9 @@ public class Server {
             fis.close();
             is.close();
             dos.close();
-            client.close();
         }
         ss.close();
+        client.close();
     }
 
-    public static void main(String[] args) {
-        Server server = new Server();
-        int port = 8070;
-        try {
-            server.start(port);
-            server.task();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
 }

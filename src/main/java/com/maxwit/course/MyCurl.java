@@ -1,80 +1,82 @@
 package com.maxwit.course;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * MyCurl
  */
 public class MyCurl {
     Socket socket = null;
-    DataInputStream dis = null;
-    DataOutputStream dos = null;
-    String dpath = "Client";
 
-    void curl(String host, int port, String command, String fname) throws IOException {
+    String curl(String host, int port, String command, String fname, String dpath) throws IOException {
         socket = new Socket(host, port);
-        dis = new DataInputStream(socket.getInputStream());
-        dos = new DataOutputStream(socket.getOutputStream());
-        dos.writeUTF(command);
-        dos.flush();
+        InputStream dis = new DataInputStream(socket.getInputStream());
 
-        String rsp = dis.readUTF();
-        
-        String[] rspParas = rsp.split("\n");
-        String[] rspH = rspParas[0].split(" ");
-        Integer flen = Integer.valueOf(rspParas[1]);
+        OutputStream os = socket.getOutputStream();
+        os.write(command.getBytes("UTF-8"));
+        socket.shutdownOutput();
 
-        if (rspH[1].equals("200")) {
-            saveFile((int) flen, dpath, fname);
-        } else {
-            System.out.println("404");
+        byte[] b = new byte[1204];
+        int len = dis.read(b);
+        StringBuilder rspB = new StringBuilder();
+        rspB.append(new String(b, 0, len, "UTF-8"));
+        String rsp = rspB.toString();
+
+        String rspH = null;
+        String body = null;
+        Pattern p = Pattern.compile("([\\s\\S]*?)\n\n([\\s\\S]*)");
+        Matcher m = p.matcher(rsp);
+        while (m.find()) {
+            rspH = m.group(1);
+            body = m.group(2);
         }
 
-        dos.close();
-        socket.close();
+        p = Pattern.compile("(.*?) (\\d+) (.*)\n");
+        m = p.matcher(rspH);
+        String httpv = null;
+        String sCode = null;
+        String des = null;
+        while (m.find()) {
+            httpv = m.group(1);
+            sCode = m.group(2);
+            des = m.group(3);
+        }
+
+        p = Pattern.compile("\n(.*): (.*)");
+        m = p.matcher(rspH);
+        Map<String, String> rspInfo = new HashMap<>();
+        while (m.find()) {
+            rspInfo.put(m.group(1), m.group(2));
+        }
+
+
+        if (sCode.equals("200")) {
+            saveFile(dpath, fname, body);
+        } else {
+            //
+        }
+        dis.close();
+
+        return sCode;
     }
 
-    void saveFile(int flen, String dpath, String fname) throws IOException {
+    void saveFile(String dpath, String fname, String body) throws IOException {
         File directory = new File(dpath);
-        if(!directory.exists()) {
+        if (!directory.exists()) {
             directory.mkdir();
         }
-        String fpath = directory.getAbsolutePath() + File.separatorChar + fname;
-        File file = new File(fpath);
-        DataOutputStream fos = new DataOutputStream(new FileOutputStream(file));
-        byte[] bt = new byte[flen];
-        dis.read(bt);
-        fos.write(bt, 0, flen);
-        fos.flush();
+        String fpathStr = dpath + File.separatorChar + fname;
 
-        dis.close();
-        fos.close();
-    }
-
-    public static void main(String[] args) {
-        MyCurl mCurl = new MyCurl();
-        String host = "localhost";
-        int port = 9003;
-
-        String method = "GET";
-        String uri = "/aa/bb.txt";
-        String httpv = "HTTP/1.1";
-
-        String[] paths = uri.split("/");
-        String fname = paths[paths.length - 1];
-
-        String requestStm = method + " " + uri + " " + httpv;
-        try {
-            mCurl.curl(host, port, requestStm, fname);
+        try (PrintWriter out = new PrintWriter(fpathStr, "UTF-8")) {
+            out.write(body);
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
+
 }
