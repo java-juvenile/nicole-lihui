@@ -13,3 +13,7 @@ buildNumber.properties
 .project
 .settings
 .vscode
+aa/
+Client/
+.idea/
+.vscode/
