@@ -9,7 +9,7 @@ public class ServerTest {
     @Test
     public void  server() {
         Server server = new Server();
-        int port = 8080;
+        int port = 8888;
         try {
             server.start(port);
             server.task();
